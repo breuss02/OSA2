@@ -7,9 +7,9 @@ class CheeseburgerFactory:
         self.num_burgers = num_burgers
         self.burgers_produced = 0
 
-        # Buffers and semaphores
-        self.milk_buffer = queue.Queue(maxsize=9)  # Buffer for milk bottles
-        self.cheese_buffer = queue.Queue(maxsize=2)  # Buffer for cheese slices
+        # Buffers
+        self.milk_buffer = queue.Queue(maxsize=9) 
+        self.cheese_buffer = queue.Queue(maxsize=2)  
 
         # Mutex and semaphores
         self.milk_mutex = threading.Semaphore(1)
@@ -20,15 +20,16 @@ class CheeseburgerFactory:
         self.cheese_empty = threading.Semaphore(2)
         self.cheese_full = threading.Semaphore(0)
 
-        # Unique milk ID counter
+        # Milk ID counter
         self.milk_id_counter = 1
         self.milk_id_lock = threading.Lock()
-
+        # Milk Producer: Iterates through needed number of milk bottles for input burger amount 
     def milk_producer(self, producer_id):
         """Produces milk bottles."""
         for _ in range(2 * self.num_burgers):
             self.milk_empty.acquire()
             self.milk_mutex.acquire()
+            #Lock Zone
             try:
                 with self.milk_id_lock:
                     milk_id = self.milk_id_counter
@@ -40,17 +41,19 @@ class CheeseburgerFactory:
                 self.milk_full.release()
             time.sleep(0.1)  # Simulate production delay
 
+        # Cheese Producer: Iterates through needed number of Cheese slices, created from milk producer milk for input burger amount 
     def cheese_producer(self, producer_id):
         """Converts milk bottles into cheese slices."""
         for _ in range(self.num_burgers):
             for _ in range(3):  # Wait for 3 milk bottles
                 self.milk_full.acquire()
             self.milk_mutex.acquire()
+            #Lock Zone
             try:
                 milk_ids = [self.milk_buffer.get() for _ in range(3)]
                 for _ in milk_ids:
                     self.milk_empty.release()
-                # Ensure uniqueness by sorting milk IDs and including producer ID
+                # Sort milk IDs and including producer ID
                 cheese_id = int(''.join(map(str, sorted(milk_ids))) + f"{producer_id}")
             finally:
                 self.milk_mutex.release()
@@ -64,12 +67,14 @@ class CheeseburgerFactory:
                 self.cheese_full.release()
             time.sleep(0.1)  # Simulate production delay
 
+        # Cheeseburger Producer: Iterates through needed number of input burgers, created from cheese from cheese producer that uses milk from milk producer
     def cheeseburger_producer(self):
         """Assembles cheeseburgers from cheese slices."""
         while self.burgers_produced < self.num_burgers:
             for _ in range(2):  # Wait for 2 cheese slices
                 self.cheese_full.acquire()
             self.cheese_mutex.acquire()
+            #Lock Zone
             try:
                 # Collect 2 cheese slices from the buffer
                 cheese_slices = [self.cheese_buffer.get() for _ in range(2)]
